@@ -91,7 +91,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -102,7 +102,12 @@ vim.g.have_nerd_font = false
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.o.relativenumber = true
+vim.o.relativenumber = true
+
+vim.opt.expandtab = true -- Use spaces instead of tabs
+vim.opt.tabstop = 4 -- A tab character occupies 4 columns for display purposes
+vim.opt.shiftwidth = 4 -- Indentation operations use 4 spaces
+vim.opt.softtabstop = 4 -- Treat 4 spaces as a single unit for editing
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -114,7 +119,8 @@ vim.o.showmode = false
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
-vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
+-- vim.schedule(function() vim.o.clipboard = 'unnamed' end)
+vim.o.clipboard = 'unnamedplus'
 
 -- Enable break indent
 vim.o.breakindent = true
@@ -217,6 +223,11 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
 -- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
 -- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
+
+vim.keymap.set('n', '<A-j>', ':m .+1<CR>==') -- move line up(n)
+vim.keymap.set('n', '<A-k>', ':m .-2<CR>==') -- move line down(n)
+vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv") -- move line up(v)
+vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv") -- move line down(v)
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -594,7 +605,7 @@ require('lazy').setup({
       --  See `:help lsp-config` for information about keys and how to configure
       local servers = {
         -- clangd = {},
-        -- gopls = {},
+        gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
         --
@@ -614,7 +625,7 @@ require('lazy').setup({
       -- You can press `g?` for help in this menu.
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
-        'lua_ls', -- Lua Language server
+        'lua-language-server', -- Lua Language server
         'stylua', -- Used to format Lua code
         -- You can add other tools here that you want Mason to install
       })
@@ -674,7 +685,7 @@ require('lazy').setup({
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
+        local disable_filetypes = { c = true, cpp = true, go = true }
         if disable_filetypes[vim.bo[bufnr].filetype] then
           return nil
         else
@@ -686,6 +697,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        -- go = { 'gofmt' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -852,7 +864,7 @@ require('lazy').setup({
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     config = function()
-      local filetypes = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+      local filetypes = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'go' }
       require('nvim-treesitter').install(filetypes)
       vim.api.nvim_create_autocmd('FileType', {
         pattern = filetypes,
@@ -860,6 +872,79 @@ require('lazy').setup({
       })
     end,
   },
+
+  {
+    'windwp/nvim-autopairs',
+    event = 'InsertEnter',
+    config = function() require('nvim-autopairs').setup {} end,
+  },
+
+  {
+    'ray-x/go.nvim',
+    dependencies = { -- optional packages
+      'ray-x/guihua.lua',
+      'neovim/nvim-lspconfig',
+      'nvim-treesitter/nvim-treesitter',
+    },
+    opts = function()
+      require('go').setup(opts)
+      local format_sync_grp = vim.api.nvim_create_augroup('GoFormat', {})
+      vim.api.nvim_create_autocmd('BufWritePre', {
+        pattern = '*.go',
+        callback = function() require('go.format').goimports() end,
+        group = format_sync_grp,
+      })
+
+      vim.keymap.set('n', '<F8>', require('go.dap').stop)
+
+      return {
+        -- lsp_keymaps = false,
+        -- other options
+        dap_debug_gui = false,
+        dap_debug_keymap = false,
+        icons = false,
+      }
+    end,
+    event = { 'CmdlineEnter' },
+    ft = { 'go', 'gomod' },
+    build = ':lua require("go.install").update_all_sync()', -- if you need to install/update all binaries
+  },
+  -- {
+  --   'mfussenegger/nvim-dap',
+  --   dependencies = {
+  --     'leoluz/nvim-dap-go',
+  --     'rcarriga/nvim-dap-ui',
+  --     'theHamsta/nvim-dap-virtual-text',
+  --     'nvim-neotest/nvim-nio',
+  --     'williamboman/mason.nvim',
+  --   },
+  --   config = function()
+  --     local dap = require 'dap'
+  --     local ui = require 'dapui'
+  --
+  --     require('dapui').setup()
+  --     require('dap-go').setup()
+  --     require('nvim-dap-virtual-text').setup()
+  --
+  --     vim.keymap.set('n', '<space>b', dap.toggle_breakpoint)
+  --     vim.keymap.set('n', '<space>gb', dap.run_to_cursor)
+  --
+  --     -- Eval var under cursor
+  --     vim.keymap.set('n', '<space>?', function() require('dapui').eval(nil, { enter = true }) end)
+  --
+  --     vim.keymap.set('n', '<F1>', dap.continue)
+  --     vim.keymap.set('n', '<F2>', dap.step_into)
+  --     vim.keymap.set('n', '<F3>', dap.step_over)
+  --     vim.keymap.set('n', '<F4>', dap.step_out)
+  --     vim.keymap.set('n', '<F5>', dap.step_back)
+  --     vim.keymap.set('n', '<F13>', dap.restart)
+  --
+  --     dap.listeners.before.attach.dapui_config = function() ui.open() end
+  --     dap.listeners.before.launch.dapui_config = function() ui.open() end
+  --     dap.listeners.before.event_terminated.dapui_config = function() ui.close() end
+  --     dap.listeners.before.event_exited.dapui_config = function() ui.close() end
+  --   end,
+  -- },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
@@ -870,12 +955,12 @@ require('lazy').setup({
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug',
+  require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
   -- require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
