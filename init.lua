@@ -229,8 +229,21 @@ vim.keymap.set('n', '<A-k>', ':m .-2<CR>==') -- move line down(n)
 vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv") -- move line up(v)
 vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv") -- move line down(v)
 
+vim.keymap.set({ 'v', 'n' }, '<A-n>', '<cmd>cnext<CR>')
+vim.keymap.set({ 'v', 'n' }, '<A-p>', '<cmd>cprev<CR>')
+vim.keymap.set('i', '<C-l>', '<Del>')
+vim.keymap.set('i', '<A-h>', '<Left>')
+vim.keymap.set('i', '<A-l>', '<Right>')
+vim.keymap.set('i', '<A-j>', '<Down>')
+vim.keymap.set('i', '<A-k>', '<Up>')
+
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
+-- vim.api.nvim_create_autocmd('FocusLost', {
+--   desc = 'Save buffer on focus lost',
+--   pattern = '*',
+--   command = 'silent update',
+-- })
 
 -- Highlight when yanking (copying) text
 --  Try it with `yap` in normal mode
@@ -397,7 +410,11 @@ require('lazy').setup({
         --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
         --   },
         -- },
-        -- pickers = {}
+        pickers = {
+          oldfiles = {
+            cwd_only = true,
+          },
+        },
         extensions = {
           ['ui-select'] = { require('telescope.themes').get_dropdown() },
         },
@@ -417,7 +434,7 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
-      vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
+      vim.keymap.set('n', '<leader>e', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader>sc', builtin.commands, { desc = '[S]earch [C]ommands' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
 
@@ -442,7 +459,7 @@ require('lazy').setup({
 
           -- Fuzzy find all the symbols in your current document.
           -- Symbols are things like variables, functions, types, etc.
-          vim.keymap.set('n', 'gO', builtin.lsp_document_symbols, { buffer = buf, desc = 'Open Document Symbols' })
+          vim.keymap.set('n', '<leader>r', builtin.lsp_document_symbols, { buffer = buf, desc = 'Open Document Symbols' })
 
           -- Fuzzy find all the symbols in your current workspace.
           -- Similar to document symbols, except searches over your entire project.
