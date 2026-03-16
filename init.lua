@@ -232,6 +232,9 @@ vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv") -- move line down(v)
 
 vim.keymap.set({ 'v', 'n' }, '<A-n>', '<cmd>cnext<CR>')
 vim.keymap.set({ 'v', 'n' }, '<A-p>', '<cmd>cprev<CR>')
+vim.keymap.set({ 'v', 'n' }, '<leader>pq', '<cmd>copen<CR><C-w>w')
+vim.keymap.set({ 'v', 'n' }, '<leader>pw', '<cmd>cclose<CR>')
+
 vim.keymap.set('i', '<C-l>', '<Del>')
 vim.keymap.set('i', '<A-h>', '<Left>')
 vim.keymap.set('i', '<A-l>', '<Right>')
@@ -244,6 +247,11 @@ vim.keymap.set('n', '<leader>st', function()
   vim.cmd.wincmd 'J'
   vim.api.nvim_win_set_height(0, 10)
 end)
+
+vim.keymap.set('n', '[[', function()
+  vim.fn.append(vim.fn.line '.', '')
+  vim.fn.append(vim.fn.line '.' - 1, '')
+end, { desc = 'Add new line above and below cursor' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -631,6 +639,7 @@ require('lazy').setup({
       local servers = {
         -- clangd = {},
         gopls = {},
+        -- sqls = {},
         -- pyright = {},
         -- rust_analyzer = {},
         --
@@ -722,6 +731,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        sql = { 'sqruff' },
         -- go = { 'gofmt' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
@@ -788,6 +798,8 @@ require('lazy').setup({
         --
         -- See :h blink-cmp-config-keymap for defining your own keymap
         preset = 'default',
+        ['<Tab>'] = false,
+        ['<S-Tab>'] = false,
 
         -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
         --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
@@ -805,8 +817,19 @@ require('lazy').setup({
         documentation = { auto_show = false, auto_show_delay_ms = 500 },
       },
 
+      -- sources = {
+      --   default = { 'lsp', 'path', 'snippets' },
+      --
+      -- },
       sources = {
-        default = { 'lsp', 'path', 'snippets' },
+        default = { 'lsp', 'path', 'snippets', 'buffer' },
+        per_filetype = {
+          sql = { 'snippets', 'dadbod', 'buffer' },
+        },
+        -- add vim-dadbod-completion to your completion providers
+        providers = {
+          dadbod = { name = 'Dadbod', module = 'vim_dadbod_completion.blink' },
+        },
       },
 
       snippets = { preset = 'luasnip' },
@@ -986,7 +1009,7 @@ require('lazy').setup({
     'kristijanhusak/vim-dadbod-ui',
     dependencies = {
       { 'tpope/vim-dadbod' },
-      { 'kristijanhusak/vim-dadbod-completion', ft = { 'sql', 'mysql', 'plsql' } }, -- Optional completion
+      { 'kristijanhusak/vim-dadbod-completion', ft = { 'sql', 'mysql', 'plsql', 'vim' } }, -- Optional completion
     },
     cmd = { 'DBUI', 'DBUIToggle', 'DBUIAddConnection', 'DBUIFindBuffer' },
     init = function()
@@ -995,6 +1018,13 @@ require('lazy').setup({
       -- vim.g.db_ui_save_location = '~/.config/nvim/db_ui_queries' -- Customize where to save queries
       -- vim.g.db_ui_win_position = 'right'
       vim.g.db_ui_show_database_icon = 1
+      vim.g.omni_sql_no_dynamic_completion = 1
+      vim.g.omni_sql_no_default_maps = 1
+      vim.keymap.set('n', '<leader>pb', '<cmd>DBUIToggle<cr>', { desc = 'DBUI Toggle' })
+    end,
+    config = function()
+      -- Optional: general configuration for vim-dadbod-completion
+      vim.g.vim_dadbod_completion_mark = '[DB]' -- Customizes the completion item mark
     end,
   },
   -- {
@@ -1081,6 +1111,15 @@ require('lazy').setup({
     },
   },
 })
+
+-- local cmp = require 'cmp'
+--
+-- cmp.setup.filetype({ 'sql' }, {
+--   sources = {
+--     { name = 'vim-dadbod-completion' },
+--     { name = 'buffer' },
+--   },
+-- })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
