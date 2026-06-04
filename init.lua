@@ -108,6 +108,7 @@ vim.opt.expandtab = true -- Use spaces instead of tabs
 vim.opt.tabstop = 4 -- A tab character occupies 4 columns for display purposes
 vim.opt.shiftwidth = 4 -- Indentation operations use 4 spaces
 vim.opt.softtabstop = 4 -- Treat 4 spaces as a single unit for editing
+vim.opt.fixeol = false
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -234,6 +235,9 @@ vim.keymap.set({ 'v', 'n' }, '<A-n>', '<cmd>cnext<CR>')
 vim.keymap.set({ 'v', 'n' }, '<A-p>', '<cmd>cprev<CR>')
 vim.keymap.set({ 'v', 'n' }, '<leader>pq', '<cmd>copen<CR><C-w>w')
 vim.keymap.set({ 'v', 'n' }, '<leader>pw', '<cmd>cclose<CR>')
+vim.keymap.set({ 'v', 'n' }, '<leader>tc', '<cmd>tabc<CR>', { desc = '[T]ab [C]lose' })
+vim.keymap.set({ 'v', 'n' }, '<leader>to', '<cmd>tabo<CR>', { desc = '[T]ab [O]pen' })
+vim.keymap.set({ 'v', 'n' }, '<leader>tn', '<cmd>tabnew<CR>', { desc = '[T]ab [N]ew' })
 
 vim.keymap.set('i', '<C-l>', '<Del>')
 vim.keymap.set('i', '<A-h>', '<Left>')
@@ -248,11 +252,14 @@ vim.keymap.set('n', '<leader>st', function()
   vim.api.nvim_win_set_height(0, 10)
 end)
 
-vim.keymap.set('n', '[[', function()
+vim.keymap.set('n', '<leader>n', function()
   vim.fn.append(vim.fn.line '.', '')
   vim.fn.append(vim.fn.line '.' - 1, '')
 end, { desc = 'Add new line above and below cursor' })
 
+vim.keymap.set('n', '<leader>gb', '<cmd>Gitsigns blame<CR>', { desc = '[G]it [B]lame' })
+vim.keymap.set('n', ']c', '<cmd>Gitsigns next_hunk<cr>', { desc = 'Next change' })
+vim.keymap.set('n', '[c', '<cmd>Gitsigns prev_hunk<cr>', { desc = 'Prev change' })
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 -- vim.api.nvim_create_autocmd('FocusLost', {
@@ -300,31 +307,86 @@ require('lazy').setup({
 
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
   -- If you prefer to call `setup` explicitly, use:
-  --    {
-  --        'lewis6991/gitsigns.nvim',
-  --        config = function()
-  --            require('gitsigns').setup({
-  --                -- Your gitsigns configuration here
-  --            })
-  --        end,
-  --    }
+  {
+    'lewis6991/gitsigns.nvim',
+    config = function()
+      require('gitsigns').setup {
+        -- Your gitsigns configuration here
+        signs = {
+          add = { text = '+' },
+          change = { text = '~' },
+          delete = { text = '_' },
+          topdelete = { text = '‾' },
+          changedelete = { text = '~' },
+        },
+        on_attach = function(bufnr)
+          -- Map 'q' to quit the diff window and turn off diff mode
+          vim.keymap.set('n', 'q', function()
+            if vim.wo.diff then
+              vim.cmd 'diffoff'
+              -- Use bd! to force close the scratch buffer without asking to save
+              vim.cmd 'bd!'
+            end
+          end, { buffer = bufnr, desc = 'Close diff and scratch buffer' })
+        end,
+      }
+    end,
+  },
+  {
+    'folke/noice.nvim',
+    event = 'VeryLazy',
+    opts = {
+      -- add any options here
+      lsp = {
+        signature = {
+          enabled = false,
+        },
+      },
+    },
+    dependencies = {
+      -- if you lazy-load any plugin below, make sure to add proper `module="..."` entries
+      'MunifTanjim/nui.nvim',
+      -- OPTIONAL:
+      --   `nvim-notify` is only needed, if you want to use the notification view.
+      --   If not available, we use `mini` as the fallback
+      'rcarriga/nvim-notify',
+    },
+  },
+  {
+    'MeanderingProgrammer/render-markdown.nvim',
+    dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-mini/mini.nvim' }, -- if you use the mini.nvim suite
+    -- dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-mini/mini.icons' },        -- if you use standalone mini plugins
+    -- dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' }, -- if you prefer nvim-web-devicons
+    ---@module 'render-markdown'
+    ---@type render.md.UserConfig
+    opts = {},
+  },
+  {
+    'karb94/neoscroll.nvim',
+    opts = {
+      hide_cursor = false,
+      stop_eof = true,
+      easing = 'quadratic',
+      duration_multiplier = 0.30,
+    },
+  },
   --
   -- Here is a more advanced example where we pass configuration
   -- options to `gitsigns.nvim`.
   --
   -- See `:help gitsigns` to understand what the configuration keys do
-  { -- Adds git related signs to the gutter, as well as utilities for managing changes
-    'lewis6991/gitsigns.nvim',
-    opts = {
-      signs = {
-        add = { text = '+' },
-        change = { text = '~' },
-        delete = { text = '_' },
-        topdelete = { text = '‾' },
-        changedelete = { text = '~' },
-      },
-    },
-  },
+  -- { -- Adds git related signs to the gutter, as well as utilities for managing changes
+  --   'lewis6991/gitsigns.nvim',
+  --   opts = {
+  --     signs = {
+  --       add = { text = '+' },
+  --       change = { text = '~' },
+  --       delete = { text = '_' },
+  --       topdelete = { text = '‾' },
+  --       changedelete = { text = '~' },
+  --     },
+  --   },
+  -- },
 
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
@@ -452,6 +514,8 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>e', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader>sc', builtin.commands, { desc = '[S]earch [C]ommands' })
+      vim.keymap.set('n', '<leader>sh', builtin.git_bcommits, { desc = '[S]earch [H]istory' })
+      vim.keymap.set('n', '<leader>se', builtin.git_status, { desc = '[S]earch Git Staus' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
 
       -- This runs on LSP attach per buffer (see main LSP attach function in 'neovim/nvim-lspconfig' config for more info,
@@ -485,6 +549,10 @@ require('lazy').setup({
           -- Useful when you're not sure what type a variable is and you want to see
           -- the definition of its *type*, not where it was *defined*.
           vim.keymap.set('n', 'grt', builtin.lsp_type_definitions, { buffer = buf, desc = '[G]oto [T]ype Definition' })
+
+          local bufname = vim.api.nvim_buf_get_name(event.buf)
+          local client = vim.lsp.get_client_by_id(event.data.client_id)
+          if client and client.name == 'gopls' and string.match(bufname, '^diffview://') then vim.lsp.buf_detach_client(event.buf, event.data.client_id) end
         end,
       })
 
@@ -1027,6 +1095,34 @@ require('lazy').setup({
       vim.g.vim_dadbod_completion_mark = '[DB]' -- Customizes the completion item mark
     end,
   },
+  {
+    'sindrets/diffview.nvim',
+    cmd = { 'DiffviewOpen', 'DiffviewFileHistory' },
+    keys = {
+      { '<leader>gd', '<cmd>DiffviewOpen<cr>', desc = 'Diffview Open' },
+      { '<leader>gh', '<cmd>DiffviewFileHistory %<cr>', desc = 'Diffview File History' },
+    },
+    opts = {},
+    config = function()
+      local actions = require 'diffview.actions'
+      require('diffview').setup {
+        keymaps = {
+          file_history_panel = {
+            { 'n', '<cr>', actions.open_in_diffview, { desc = 'Open the selected entry in a new diffview' } },
+          },
+        },
+      }
+    end,
+  },
+  -- {
+  --   'chrisgrieser/nvim-spider',
+  --   keys = {
+  --     { 'w', "<cmd>lua require('spider').motion('w')<CR>", mode = { 'n', 'o', 'x' } },
+  --     { 'e', "<cmd>lua require('spider').motion('e')<CR>", mode = { 'n', 'o', 'x' } },
+  --     { 'b', "<cmd>lua require('spider').motion('b')<CR>", mode = { 'n', 'o', 'x' } },
+  --     { 'ge', "<cmd>lua require('spider').motion('ge')<CR>", mode = { 'n', 'o', 'x' } },
+  --   },
+  -- },
   -- {
   --   'mfussenegger/nvim-dap',
   --   dependencies = {
