@@ -205,7 +205,15 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
-vim.keymap.set('x', 'p', '"_dP', { desc = 'Paste over selection without replacing clipboard' })
+-- Paste over selection without replacing clipboard (visual `P` keeps the register)
+vim.keymap.set('x', 'p', 'P', { desc = 'Paste over selection without replacing clipboard' })
+-- Delete/change without overwriting the clipboard (black hole register)
+vim.keymap.set({ 'n', 'x' }, 'd', '"_d', { desc = 'Delete without yanking' })
+vim.keymap.set({ 'n', 'x' }, 'D', '"_D', { desc = 'Delete to end of line without yanking' })
+vim.keymap.set({ 'n', 'x' }, 'c', '"_c', { desc = 'Change without yanking' })
+vim.keymap.set({ 'n', 'x' }, 'C', '"_C', { desc = 'Change to end of line without yanking' })
+-- "Cut": delete and yank, for when you actually want to move text
+vim.keymap.set({ 'n', 'x' }, '<leader>d', 'd', { desc = 'Cut (delete and yank)' })
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
 -- vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
