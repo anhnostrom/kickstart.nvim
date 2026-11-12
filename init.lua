@@ -205,11 +205,16 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
+vim.keymap.set('x', 'p', '"_dP', { desc = 'Paste over selection without replacing clipboard' })
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
 -- vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
 -- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
 -- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
+
+-- Навигация по словам (Emacs-style) в режиме командной строки
+vim.keymap.set('c', '<A-b>', '<S-Left>', { desc = 'Move word backward' })
+vim.keymap.set('c', '<A-f>', '<S-Right>', { desc = 'Move word forward' })
 
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
@@ -260,6 +265,7 @@ end, { desc = 'Add new line above and below cursor' })
 vim.keymap.set('n', '<leader>gb', '<cmd>Gitsigns blame<CR>', { desc = '[G]it [B]lame' })
 vim.keymap.set('n', ']c', '<cmd>Gitsigns next_hunk<cr>', { desc = 'Next change' })
 vim.keymap.set('n', '[c', '<cmd>Gitsigns prev_hunk<cr>', { desc = 'Prev change' })
+vim.keymap.set('n', '<leader>m', '<cmd>%!jq .<CR>', { desc = 'Beautify JSON' })
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 -- vim.api.nvim_create_autocmd('FocusLost', {
@@ -319,16 +325,16 @@ require('lazy').setup({
           topdelete = { text = '‾' },
           changedelete = { text = '~' },
         },
-        on_attach = function(bufnr)
-          -- Map 'q' to quit the diff window and turn off diff mode
-          vim.keymap.set('n', 'q', function()
-            if vim.wo.diff then
-              vim.cmd 'diffoff'
-              -- Use bd! to force close the scratch buffer without asking to save
-              vim.cmd 'bd!'
-            end
-          end, { buffer = bufnr, desc = 'Close diff and scratch buffer' })
-        end,
+        -- on_attach = function(bufnr)
+        --   -- Map 'q' to quit the diff window and turn off diff mode
+        --   vim.keymap.set('n', 'q', function()
+        --     if vim.wo.diff then
+        --       vim.cmd 'diffoff'
+        --       -- Use bd! to force close the scratch buffer without asking to save
+        --       vim.cmd 'bd!'
+        --     end
+        --   end, { buffer = bufnr, desc = 'Close diff and scratch buffer' })
+        -- end,
       }
     end,
   },
@@ -340,6 +346,12 @@ require('lazy').setup({
       lsp = {
         signature = {
           enabled = false,
+        },
+      },
+      routes = {
+        {
+          view = 'notify', -- Or "cmdline"
+          filter = { event = 'msg_showmode' },
         },
       },
     },
@@ -489,8 +501,17 @@ require('lazy').setup({
         --   },
         -- },
         pickers = {
+          find_files = {
+            hidden = true,
+            file_ignore_patterns = { '^%.git/' },
+          },
           oldfiles = {
+            hidden = true,
             cwd_only = true,
+          },
+          live_grep = {
+            hidden = true,
+            file_ignore_patterns = { '^%.git/' },
           },
         },
         extensions = {
@@ -707,8 +728,10 @@ require('lazy').setup({
       local servers = {
         -- clangd = {},
         gopls = {},
+        bashls = {},
         -- sqls = {},
         -- pyright = {},
+        basedpyright = {},
         -- rust_analyzer = {},
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -716,6 +739,7 @@ require('lazy').setup({
         --
         -- But for many setups, the LSP (`ts_ls`) will work just fine
         -- ts_ls = {},
+        buf_ls = {},
       }
 
       -- Ensure the servers and tools above are installed
@@ -725,10 +749,14 @@ require('lazy').setup({
       --    :Mason
       --
       -- You can press `g?` for help in this menu.
-      local ensure_installed = vim.tbl_keys(servers or {})
+      local ensure_installed = {}
       vim.list_extend(ensure_installed, {
         'lua-language-server', -- Lua Language server
         'stylua', -- Used to format Lua code
+        'bash-language-server',
+        'gopls',
+        'basedpyright',
+        'buf',
         -- You can add other tools here that you want Mason to install
       })
 
@@ -787,7 +815,7 @@ require('lazy').setup({
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true, go = true }
+        local disable_filetypes = { c = true, cpp = true, go = false }
         if disable_filetypes[vim.bo[bufnr].filetype] then
           return nil
         else
@@ -800,6 +828,7 @@ require('lazy').setup({
       formatters_by_ft = {
         lua = { 'stylua' },
         sql = { 'sqruff' },
+        go = { 'goimports', 'gofumpt' },
         -- go = { 'gofmt' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
@@ -916,27 +945,29 @@ require('lazy').setup({
     },
   },
 
-  { -- You can easily change to a different colorscheme.
-    -- Change the name of the colorscheme plugin below, and then
-    -- change the command in the config to whatever the name of that colorscheme is.
-    --
-    -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'folke/tokyonight.nvim',
-    priority = 1000, -- Make sure to load this before all the other start plugins.
-    config = function()
-      ---@diagnostic disable-next-line: missing-fields
-      require('tokyonight').setup {
-        styles = {
-          comments = { italic = false }, -- Disable italics in comments
-        },
-      }
-
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
-    end,
-  },
+  -- { -- You can easily change to a different colorscheme.
+  --   -- Change the name of the colorscheme plugin below, and then
+  --   -- change the command in the config to whatever the name of that colorscheme is.
+  --   --
+  --   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
+  --   'folke/tokyonight.nvim',
+  --   priority = 1000, -- Make sure to load this before all the other start plugins.
+  --   config = function()
+  --     ---@diagnostic disable-next-line: missing-fields
+  --     require('tokyonight').setup {
+  --       styles = {
+  --         comments = { italic = false }, -- Disable italics in comments
+  --       },
+  --     }
+  --
+  --     -- Load the colorscheme here.
+  --     -- Like many other themes, this one has different styles, and you could load
+  --     -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
+  --     vim.cmd.colorscheme 'tokyonight-moon'
+  --   end,
+  -- },
+  { 'catppuccin/nvim', name = 'catppuccin', priority = 1000, config = function() vim.cmd.colorscheme 'catppuccin-nvim' end },
+  { 'rebelot/kanagawa.nvim', name = 'kanagawa', priority = 1000, config = function() end },
 
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
@@ -1004,22 +1035,34 @@ require('lazy').setup({
     },
     opts = function()
       require('go').setup(opts)
-      local format_sync_grp = vim.api.nvim_create_augroup('GoFormat', {})
-      vim.api.nvim_create_autocmd('BufWritePre', {
-        pattern = '*.go',
-        callback = function() require('go.format').goimports() end,
-        group = format_sync_grp,
-      })
+      -- require('go').setup {
+      --   gofmt = false,
+      --   goimports = false,
+      --   lsp_cfg = {
+      --     settings = {
+      --       analyses = { unusedparams = true },
+      --       staticcheck = true,
+      --     },
+      --   },
+      -- }
+      -- local format_sync_grp = vim.api.nvim_create_augroup('GoFormat', {})
+      -- vim.api.nvim_create_autocmd('BufWritePre', {
+      --   pattern = '*.go',
+      --   callback = function() require('go.format').goimports() end,
+      --   group = format_sync_grp,
+      -- })
 
       vim.keymap.set('n', '<F8>', require('go.dap').stop)
       vim.keymap.set('n', '<leader>pd', '<cmd>GoDebug -t<cr>', { desc = 'Go Debug test' })
       vim.keymap.set('n', '<leader>pt', '<cmd>GoAddTest<cr>', { desc = 'Go Add test' })
+      vim.keymap.set('n', '<leader>pc', '<cmd>DapVirtualTextForceRefresh<cr>', { desc = 'Go Add test' })
 
       return {
         -- lsp_keymaps = false,
         -- other options
         dap_debug_gui = false,
         dap_debug_keymap = false,
+        dap_debug_vt = false,
         icons = false,
       }
     end,
@@ -1038,7 +1081,7 @@ require('lazy').setup({
     keys = {
       -- 👇 in this section, choose your own keymappings!
       {
-        '<leader>-',
+        '<leader>y',
         mode = { 'n', 'v' },
         '<cmd>Yazi<cr>',
         desc = 'Open yazi at the current file',
@@ -1059,6 +1102,7 @@ require('lazy').setup({
     opts = {
       -- if you want to open yazi instead of netrw, see below for more info
       open_for_directories = false,
+      highlight_hovered_buffers_in_same_directory = false,
       keymaps = {
         show_help = '<f1>',
       },
@@ -1207,6 +1251,19 @@ require('lazy').setup({
     },
   },
 })
+
+vim.api.nvim_create_user_command(
+  'GoDebugBDD',
+  function()
+    require('go.dap').run {
+      mode = 'test',
+      program = './cli/hotcored/api/bdd/...',
+      args = { '--godog.tags=@wip' },
+      buildFlags = '-mod=vendor',
+    }
+  end,
+  {}
+)
 
 -- local cmp = require 'cmp'
 --

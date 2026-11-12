@@ -102,14 +102,29 @@ return {
       },
       layouts = {
         {
-          elements = { {
-            id = 'scopes',
-            size = 1,
-          } },
+          elements = {
+            {
+              id = 'scopes',
+              size = 1,
+            },
+          },
           position = 'bottom',
           size = 10,
         },
+        {
+          elements = {
+            {
+              id = 'stacks',
+              size = 1,
+            },
+          },
+          position = 'right',
+          size = 100,
+        },
       },
+      -- render = {
+      --   max_type_length = nil,
+      -- },
     }
 
     -- Change breakpoint icons
@@ -135,6 +150,16 @@ return {
         -- See https://github.com/leoluz/nvim-dap-go/blob/main/README.md#configuring
         detached = vim.fn.has 'win32' == 0,
       },
+    }
+
+    local dap_virtual_text = require 'nvim-dap-virtual-text'
+    dap_virtual_text.setup {
+      enabled = true,
+      highlight_changed_variables = true,
+      enable_commands = true,
+      clear_on_continue = false,
+      virt_text_pos = 'eol',
+      commented = true,
     }
   end,
 }
