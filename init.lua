@@ -252,6 +252,103 @@ vim.keymap.set({ 'v', 'n' }, '<leader>tc', '<cmd>tabc<CR>', { desc = '[T]ab [C]l
 vim.keymap.set({ 'v', 'n' }, '<leader>to', '<cmd>tabo<CR>', { desc = '[T]ab [O]pen' })
 vim.keymap.set({ 'v', 'n' }, '<leader>tn', '<cmd>tabnew<CR>', { desc = '[T]ab [N]ew' })
 
+-- Current buffer file: absolute path, git root (or cwd), path relative to it
+local function buf_file_info()
+  local file = vim.api.nvim_buf_get_name(0)
+  if file == '' then
+    vim.notify('Buffer has no file', vim.log.levels.WARN)
+    return nil
+  end
+  file = vim.fs.normalize(vim.fn.resolve(file))
+  local git_root = vim.fs.root(file, '.git')
+  local root = git_root or vim.fn.getcwd()
+  local rel = vim.fs.relpath and vim.fs.relpath(root, file) or vim.fn.fnamemodify(file, ':.')
+  return { file = file, git_root = git_root, rel = rel }
+end
+
+-- Cursor line, or the selected line range in visual mode (also leaves visual mode)
+local function line_range()
+  local mode = vim.fn.mode()
+  if mode == 'v' or mode == 'V' or mode == '\22' then
+    local s, e = vim.fn.line 'v', vim.fn.line '.'
+    if s > e then
+      s, e = e, s
+    end
+    vim.api.nvim_feedkeys(vim.keycode '<Esc>', 'n', false)
+    return s, e
+  end
+  local l = vim.fn.line '.'
+  return l, l
+end
+
+-- Copy "path:line" (or "path:start-end" in visual mode) relative to the git root, falling back to cwd
+vim.keymap.set({ 'n', 'x' }, '<leader>cr', function()
+  local info = buf_file_info()
+  if not info then
+    return
+  end
+  local s, e = line_range()
+  local ref = info.rel .. ':' .. (s == e and s or (s .. '-' .. e))
+  vim.fn.setreg('+', ref)
+  vim.notify('Copied ' .. ref)
+end, { desc = '[C]opy [R]elative path:line' })
+
+-- Copy a GitLab permalink (pinned to HEAD commit) to the line or visual selection
+vim.keymap.set({ 'n', 'x' }, '<leader>cg', function()
+  local info = buf_file_info()
+  if not info then
+    return
+  end
+  if not info.git_root then
+    vim.notify('Not in a git repository', vim.log.levels.WARN)
+    return
+  end
+  local function git(args)
+    local res = vim.system(vim.list_extend({ 'git', '-C', info.git_root }, args), { text = true }):wait()
+    return res.code == 0 and vim.trim(res.stdout) or nil
+  end
+
+  local remote = git { 'remote', 'get-url', 'origin' }
+  if not remote then
+    vim.notify('No "origin" remote', vim.log.levels.WARN)
+    return
+  end
+  -- git@host:group/project.git | ssh://git@host[:port]/group/project.git | https://host/group/project.git
+  local host, path = remote:match '^[%w._-]+@([^:/]+):(.+)$'
+  if not host then
+    host, path = remote:match '^%a[%w+.-]*://[^/]-@?([^@/:]+)[:%d]*/(.+)$'
+  end
+  if not host then
+    vim.notify('Cannot parse remote: ' .. remote, vim.log.levels.WARN)
+    return
+  end
+  path = path:gsub('%.git$', ''):gsub('/$', '')
+
+  local sha = git { 'rev-parse', 'HEAD' }
+  if not sha then
+    vim.notify('Cannot resolve HEAD', vim.log.levels.WARN)
+    return
+  end
+
+  local s, e = line_range()
+  local anchor = '#L' .. s .. (s == e and '' or ('-' .. e))
+  local url = ('https://%s/%s/-/blob/%s/%s%s'):format(host, path, sha, info.rel, anchor)
+  vim.fn.setreg('+', url)
+
+  local warnings = {}
+  if (git { 'branch', '-r', '--contains', sha } or '') == '' then
+    table.insert(warnings, 'HEAD is not pushed — link will 404 until you push')
+  end
+  if vim.bo.modified or (git { 'status', '--porcelain', '--', info.rel } or '') ~= '' then
+    table.insert(warnings, 'file has uncommitted changes — line numbers may be off')
+  end
+  if #warnings > 0 then
+    vim.notify('Copied ' .. url .. '\n' .. table.concat(warnings, '\n'), vim.log.levels.WARN)
+  else
+    vim.notify('Copied ' .. url)
+  end
+end, { desc = '[C]opy [G]itLab link' })
+
 vim.keymap.set('i', '<C-l>', '<Del>')
 vim.keymap.set('i', '<A-h>', '<Left>')
 vim.keymap.set('i', '<A-l>', '<Right>')
